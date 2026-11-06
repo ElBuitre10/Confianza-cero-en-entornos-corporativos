@@ -1,0 +1,75 @@
+========================================================================
+LABORATORIO: MITIGACIÓN DE AMENAZAS OT - CONFIGURACIÓN OFICIAL
+DISPOSITIVO PERIMETRAL: El3UITRE (Router Cisco ISR4331)
+AUTOR: Alejandro Buitrago (ElBuitre10)
+========================================================================
+
+1. CONFIGURACIÓN DEL CONMUTADOR CORPORATIVO (Switch0)
+------------------------------------------------------------------------
+enable
+configure terminal
+
+! Creación de redes lógicas en la base de datos
+vlan 10
+ name RED_IT_HACKER
+exit
+vlan 20
+ name RED_OT_NEVERAS
+exit
+
+! Configuración del rango de interfaces industriales (Neveras y Sensores)
+interface range FastEthernet0/1 - 2, FastEthernet0/4
+ switchport mode access
+ switchport access vlan 20
+exit
+
+! Configuración de interfaces administrativas y comerciales (Hacker y Operador)
+interface range FastEthernet0/3, FastEthernet0/5
+ switchport mode access
+ switchport access vlan 10
+exit
+
+! Habilitación del enlace troncal encapsulado hacia el router principal
+interface GigabitEthernet0/1
+ switchport mode trunk
+exit
+
+! Optimización del árbol de expansión para el servidor de sensores (PortFast)
+interface FastEthernet0/1
+ spanning-tree portfast
+end
+
+2. CONFIGURACIÓN DE FIREWALL Y SUBINTERFACES (Router El3UITRE)
+------------------------------------------------------------------------
+enable
+configure terminal
+
+! Levantamiento físico del puerto troncal
+interface GigabitEthernet0/0/1
+ no shutdown
+exit
+
+! Creación y direccionamiento de la Subinterfaz lógica para la VLAN 10 (IT)
+interface GigabitEthernet0/0/1.10
+ encapsulation dot1Q 10
+ ip address 192.168.10.1 255.255.255.0
+exit
+
+! Creación y direccionamiento de la Subinterfaz lógica para la VLAN 20 (OT)
+interface GigabitEthernet0/0/1.20
+ encapsulation dot1Q 20
+ ip address 10.0.20.1 255.255.255.0
+exit
+
+! Diseño de la Lista de Control de Acceso Extendida (Cortafuegos Industrial)
+! Deniega accesos web HTTP/HTTPS (Puertos 80 y 443) hacia toda la subred OT
+ip access-list extended DEFENSE_OT_PERIMETER
+ deny tcp any 10.0.20.0 0.0.0.255 eq 80
+ deny tcp any 10.0.20.0 0.0.0.255 eq 443
+ permit ip any any
+exit
+
+! Aplicación del filtro en la salida de la subinterfaz industrial crítica
+interface GigabitEthernet0/0/1.20
+ ip access-group DEFENSE_OT_PERIMETER out
+end
